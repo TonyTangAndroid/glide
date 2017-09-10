@@ -172,7 +172,7 @@ public final class TransformationUtils {
    * height is larger than the given dimensions
    */
   public static Bitmap centerInside(@NonNull BitmapPool pool, @NonNull Bitmap inBitmap, int width,
-                                 int height) {
+      int height) {
     if (inBitmap.getWidth() <= width && inBitmap.getHeight() <= height) {
       if (Log.isLoggable(TAG, Log.VERBOSE)) {
         Log.v(TAG, "requested target size larger or equal to input, returning input");
@@ -264,11 +264,12 @@ public final class TransformationUtils {
    */
   public static Bitmap rotateImageExif(@NonNull BitmapPool pool, @NonNull Bitmap inBitmap,
       int exifOrientation) {
-    final Matrix matrix = new Matrix();
-    initializeMatrixForRotation(exifOrientation, matrix);
-    if (matrix.isIdentity()) {
+    if (!isExifOrientationRequired(exifOrientation)) {
       return inBitmap;
     }
+
+    final Matrix matrix = new Matrix();
+    initializeMatrixForRotation(exifOrientation, matrix);
 
     // From Bitmap.createBitmap.
     final RectF newRect = new RectF(0, 0, inBitmap.getWidth(), inBitmap.getHeight());
@@ -284,6 +285,25 @@ public final class TransformationUtils {
 
     applyMatrix(inBitmap, result, matrix);
     return result;
+  }
+
+  /**
+   * Returns {@code true} if the given exif orientation indicates that a transformation is necessary
+   * and {@code false} otherwise.
+   */
+  public static boolean isExifOrientationRequired(int exifOrientation) {
+    switch (exifOrientation) {
+      case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+      case ExifInterface.ORIENTATION_ROTATE_180:
+      case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+      case ExifInterface.ORIENTATION_TRANSPOSE:
+      case ExifInterface.ORIENTATION_ROTATE_90:
+      case ExifInterface.ORIENTATION_TRANSVERSE:
+      case ExifInterface.ORIENTATION_ROTATE_270:
+        return true;
+      default:
+        return false;
+    }
   }
 
   /**
@@ -348,7 +368,7 @@ public final class TransformationUtils {
 
     Bitmap argbBitmap = pool.get(maybeAlphaSafe.getWidth(), maybeAlphaSafe.getHeight(),
         Bitmap.Config.ARGB_8888);
-    new Canvas(argbBitmap).drawBitmap(maybeAlphaSafe, 0 /*left*/, 0 /*top*/, null /*pain*/);
+    new Canvas(argbBitmap).drawBitmap(maybeAlphaSafe, 0 /*left*/, 0 /*top*/, null /*paint*/);
 
     // We now own this Bitmap. It's our responsibility to replace it in the pool outside this method
     // when we're finished with it.

@@ -3,6 +3,7 @@ package com.bumptech.glide.request;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.DrawableRes;
+import android.support.annotation.Nullable;
 import android.support.v4.content.res.ResourcesCompat;
 import android.support.v4.util.Pools;
 import android.support.v7.content.res.AppCompatResources;
@@ -80,11 +81,12 @@ public final class SingleRequest<R> implements Request,
     PAUSED,
   }
 
-  private final String tag = String.valueOf(hashCode());
+  private final String tag = String.valueOf(super.hashCode());
   private final StateVerifier stateVerifier = StateVerifier.newInstance();
 
   private RequestCoordinator requestCoordinator;
   private GlideContext glideContext;
+  @Nullable
   private Object model;
   private Class<R> transcodeClass;
   private RequestOptions requestOptions;
@@ -214,6 +216,24 @@ public final class SingleRequest<R> implements Request,
       onLoadFailed(new GlideException("Received null model"), logLevel);
       return;
     }
+
+    if (status == Status.RUNNING) {
+      throw new IllegalArgumentException("Cannot restart a running request");
+    }
+
+    // If we're restarted after we're complete (usually via something like a notifyDataSetChanged
+    // that starts an identical request into the same Target or View), we can simply use the
+    // resource and size we retrieved the last time around and skip obtaining a new size, starting a
+    // new load etc. This does mean that users who want to restart a load because they expect that
+    // the view size has changed will need to explicitly clear the View or Target before starting
+    // the new load.
+    if (status == Status.COMPLETE) {
+      onResourceReady(resource, DataSource.MEMORY_CACHE);
+      return;
+    }
+
+    // Restarts for requests that are neither complete nor running can be treated as new requests
+    // and can run again from the beginning.
 
     status = Status.WAITING_FOR_SIZE;
     if (Util.isValidDimensions(overrideWidth, overrideHeight)) {
@@ -381,10 +401,13 @@ public final class SingleRequest<R> implements Request,
     if (model == null) {
       error = getFallbackDrawable();
     }
-    // Either the model isn't null, or there was no fallback drawable set. Either way we should show
-    // the error Drawable.
+    // Either the model isn't null, or there was no fallback drawable set.
     if (error == null) {
       error = getErrorDrawable();
+    }
+    // The model isn't null, no fallback drawable was set or no error drawable was set.
+    if (error == null) {
+      error = getPlaceholderDrawable();
     }
     target.onLoadFailed(error);
   }
@@ -422,6 +445,7 @@ public final class SingleRequest<R> implements Request,
         requestOptions.getDiskCacheStrategy(),
         requestOptions.getTransformations(),
         requestOptions.isTransformationRequired(),
+        requestOptions.isScaleOnlyOrNoTransform(),
         requestOptions.getOptions(),
         requestOptions.isMemoryCacheable(),
         requestOptions.getUseUnlimitedSourceGeneratorsPool(),
@@ -546,6 +570,20 @@ public final class SingleRequest<R> implements Request,
         || !requestListener.onLoadFailed(e, model, target, isFirstReadyResource())) {
       setErrorPlaceholder();
     }
+  }
+
+  @Override
+  public boolean isEquivalentTo(Request o) {
+    if (o instanceof SingleRequest) {
+      SingleRequest that = (SingleRequest) o;
+      return overrideWidth == that.overrideWidth
+          && overrideHeight == that.overrideHeight
+          && Util.bothNullOrEqual(model, that.model)
+          && transcodeClass.equals(that.transcodeClass)
+          && requestOptions.equals(that.requestOptions)
+          && priority == that.priority;
+    }
+    return false;
   }
 
   private void logV(String message) {

@@ -80,6 +80,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -92,6 +93,7 @@ public class Glide implements ComponentCallbacks2 {
   private static final String DEFAULT_DISK_CACHE_DIR = "image_manager_disk_cache";
   private static final String TAG = "Glide";
   private static volatile Glide glide;
+  private static volatile boolean isInitializing;
 
   private final Engine engine;
   private final BitmapPool bitmapPool;
@@ -151,7 +153,7 @@ public class Glide implements ComponentCallbacks2 {
     if (glide == null) {
       synchronized (Glide.class) {
         if (glide == null) {
-          initGlide(context);
+          checkAndInitializeGlide(context);
         }
       }
     }
@@ -159,18 +161,30 @@ public class Glide implements ComponentCallbacks2 {
     return glide;
   }
 
+  private static void checkAndInitializeGlide(Context context) {
+    // In the thread running initGlide(), one or more classes may call Glide.get(context).
+    // Without this check, those calls could trigger infinite recursion.
+    if (isInitializing) {
+      throw new IllegalStateException("You cannot call Glide.get() in registerComponents(),"
+          + " use the provided Glide instance instead");
+    }
+    isInitializing = true;
+    initializeGlide(context);
+    isInitializing = false;
+  }
+
   @VisibleForTesting
-  public static void init(Glide glide) {
+  public static synchronized void init(Glide glide) {
     Glide.glide = glide;
   }
 
   @VisibleForTesting
-  public static void tearDown() {
+  public static synchronized void tearDown() {
     glide = null;
   }
 
   @SuppressWarnings("deprecation")
-  private static void initGlide(Context context) {
+  private static void initializeGlide(Context context) {
     Context applicationContext = context.getApplicationContext();
 
     GeneratedAppGlideModule annotationGeneratedModule = getAnnotationGeneratedGlideModules();
@@ -212,17 +226,19 @@ public class Glide implements ComponentCallbacks2 {
     if (annotationGeneratedModule != null) {
       annotationGeneratedModule.applyOptions(applicationContext, builder);
     }
-    glide = builder.build(applicationContext);
+    Glide glide = builder.build(applicationContext);
     for (GlideModule module : manifestModules) {
-      module.registerComponents(applicationContext, glide.registry);
+      module.registerComponents(applicationContext, glide, glide.registry);
     }
     if (annotationGeneratedModule != null) {
-      annotationGeneratedModule.registerComponents(applicationContext, glide.registry);
+      annotationGeneratedModule.registerComponents(applicationContext, glide, glide.registry);
     }
+    context.getApplicationContext().registerComponentCallbacks(glide);
+    Glide.glide = glide;
   }
 
   @Nullable
-  @SuppressWarnings({"unchecked", "deprecation"})
+  @SuppressWarnings({"unchecked", "deprecation", "TryWithIdenticalCatches"})
   private static GeneratedAppGlideModule getAnnotationGeneratedGlideModules() {
     GeneratedAppGlideModule result = null;
     try {
@@ -241,6 +257,7 @@ public class Glide implements ComponentCallbacks2 {
       throw new IllegalStateException("GeneratedAppGlideModuleImpl is implemented incorrectly."
           + " If you've manually implemented this class, remove your implementation. The Annotation"
           + " processor will generate a correct implementation.", e);
+      // These exceptions can't be squashed across all versions of Android.
     } catch (IllegalAccessException e) {
       throw new IllegalStateException("GeneratedAppGlideModuleImpl is implemented incorrectly."
           + " If you've manually implemented this class, remove your implementation. The Annotation"
@@ -259,7 +276,8 @@ public class Glide implements ComponentCallbacks2 {
       RequestManagerRetriever requestManagerRetriever,
       ConnectivityMonitorFactory connectivityMonitorFactory,
       int logLevel,
-      RequestOptions defaultRequestOptions) {
+      RequestOptions defaultRequestOptions,
+      Map<Class<?>, TransitionOptions<?, ?>> defaultTransitionOptions) {
     this.engine = engine;
     this.bitmapPool = bitmapPool;
     this.arrayPool = arrayPool;
@@ -356,8 +374,10 @@ public class Glide implements ComponentCallbacks2 {
         .register(GifDrawable.class, byte[].class, new GifDrawableBytesTranscoder());
 
     ImageViewTargetFactory imageViewTargetFactory = new ImageViewTargetFactory();
-    glideContext = new GlideContext(context, registry, imageViewTargetFactory,
-        defaultRequestOptions, engine, this, logLevel);
+    glideContext =
+        new GlideContext(
+            context, registry, imageViewTargetFactory, defaultRequestOptions,
+            defaultTransitionOptions, engine, logLevel);
   }
 
   /**
@@ -467,6 +487,7 @@ public class Glide implements ComponentCallbacks2 {
    *     This method should always be called on a background thread, since it is a blocking call.
    * </p>
    */
+  @SuppressWarnings("unused") // Public API
   public void clearDiskCache() {
     Util.assertBackgroundThread();
     engine.clearDiskCache();
@@ -507,6 +528,7 @@ public class Glide implements ComponentCallbacks2 {
     // Context could be null for other reasons (ie the user passes in null), but in practice it will
     // only occur due to errors with the Fragment lifecycle.
     Preconditions.checkNotNull(
+        context,
         "You cannot start a load on a not yet attached View or a  Fragment where getActivity() "
             + "returns null (which usually occurs when getActivity() is called before the Fragment "
             + "is attached or after the Fragment is destroyed).");

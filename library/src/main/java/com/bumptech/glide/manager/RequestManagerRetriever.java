@@ -186,7 +186,8 @@ public class RequestManagerRetriever implements Handler.Callback {
       return;
     }
     for (Fragment fragment : topLevelFragments) {
-      if (fragment.getView() == null) {
+      // getFragment()s in the support FragmentManager may contain null values, see #1991.
+      if (fragment == null || fragment.getView() == null) {
         continue;
       }
       result.put(fragment.getView(), fragment);
@@ -323,7 +324,7 @@ public class RequestManagerRetriever implements Handler.Callback {
       // TODO(b/27524013): Factor out this Glide.get() call.
       Glide glide = Glide.get(context);
       requestManager =
-          factory.build(glide, current.getLifecycle(), current.getRequestManagerTreeNode());
+          factory.build(glide, current.getGlideLifecycle(), current.getRequestManagerTreeNode());
       current.setRequestManager(requestManager);
     }
     return requestManager;
@@ -354,7 +355,7 @@ public class RequestManagerRetriever implements Handler.Callback {
       // TODO(b/27524013): Factor out this Glide.get() call.
       Glide glide = Glide.get(context);
       requestManager =
-          factory.build(glide, current.getLifecycle(), current.getRequestManagerTreeNode());
+          factory.build(glide, current.getGlideLifecycle(), current.getRequestManagerTreeNode());
       current.setRequestManager(requestManager);
     }
     return requestManager;

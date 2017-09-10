@@ -1,9 +1,7 @@
 package com.bumptech.glide.samples.flickr;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Resources;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -28,7 +26,6 @@ import com.bumptech.glide.request.FutureTarget;
 import com.bumptech.glide.samples.flickr.api.Api;
 import com.bumptech.glide.samples.flickr.api.Photo;
 import com.bumptech.glide.samples.flickr.api.Query;
-import com.bumptech.glide.samples.flickr.api.RecentQuery;
 import com.bumptech.glide.samples.flickr.api.SearchQuery;
 import java.io.File;
 import java.util.ArrayList;
@@ -48,6 +45,7 @@ public class FlickrSearchActivity extends AppCompatActivity
     implements SearchView.OnQueryTextListener {
   private static final String TAG = "FlickrSearchActivity";
   private static final String STATE_QUERY = "state_search_string";
+  private static final Query DEFAULT_QUERY = new SearchQuery("kitten");
 
   private final QueryListener queryListener = new QueryListener();
   private View searching;
@@ -145,7 +143,7 @@ public class FlickrSearchActivity extends AppCompatActivity
         executeQuery(savedQuery);
       }
     } else {
-      executeQuery(RecentQuery.get());
+      executeQuery(DEFAULT_QUERY);
     }
 
     int smallGridSize = res.getDimensionPixelSize(R.dimen.small_photo_side);
@@ -185,19 +183,6 @@ public class FlickrSearchActivity extends AppCompatActivity
       backgroundThread.quit();
       backgroundThread = null;
     }
-  }
-
-  @TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
-  @Override
-  public void onTrimMemory(int level) {
-    super.onTrimMemory(level);
-    GlideApp.get(this).trimMemory(level);
-  }
-
-  @Override
-  public void onLowMemory() {
-    super.onLowMemory();
-    GlideApp.get(this).clearMemory();
   }
 
   private void executeSearch(String searchString) {

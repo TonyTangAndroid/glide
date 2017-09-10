@@ -1,7 +1,6 @@
 package com.bumptech.glide.request.target;
 
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.view.View;
@@ -178,7 +177,11 @@ public abstract class ViewTarget<T extends View, Z> extends BaseTarget<Z> {
     }
 
     private void notifyCbs(int width, int height) {
-      for (SizeReadyCallback cb : cbs) {
+      // One or more callbacks may trigger the removal of one or more additional callbacks, so we
+      // need a copy of the list to avoid a concurrent modification exception. One place this
+      // happens is when a full request completes from the in memory cache while its thumbnail is
+      // still being loaded asynchronously. See #2237.
+      for (SizeReadyCallback cb : new ArrayList<>(cbs)) {
         cb.onSizeReady(width, height);
       }
     }
@@ -219,6 +222,12 @@ public abstract class ViewTarget<T extends View, Z> extends BaseTarget<Z> {
       }
     }
 
+    /**
+     * The callback may be called anyway if it is removed by another {@link SizeReadyCallback} or
+     * otherwise removed while we're notifying the list of callbacks.
+     *
+     * <p>See #2237.
+     */
     void removeCallback(SizeReadyCallback cb) {
       cbs.remove(cb);
     }
@@ -238,23 +247,44 @@ public abstract class ViewTarget<T extends View, Z> extends BaseTarget<Z> {
       cbs.clear();
     }
 
-    private boolean isViewStateAndSizeValid(int width, int height) {
-      return isViewStateValid() && isSizeValid(width) && isSizeValid(height);
+    private boolean isViewStateAndSizeValid(int currentWidth, int currentHeight) {
+      LayoutParams params = view.getLayoutParams();
+
+      int paramWidth;
+      int paramHeight;
+      if (params == null) {
+        paramWidth = 0;
+        paramHeight = 0;
+      } else {
+        paramWidth = params.width;
+        paramHeight = params.height;
+      }
+      return isDimensionValid(paramWidth, currentWidth)
+          && isDimensionValid(paramHeight, currentHeight);
     }
 
-    private boolean isViewStateValid() {
-      // We consider the view state as valid if the view has
-      // non-null layout params and a non-zero layout width and height.
-      if (view.getLayoutParams() != null
-          && view.getLayoutParams().width > 0
-          && view.getLayoutParams().height > 0) {
+    private boolean isDimensionValid(int layoutParam, int dimen) {
+      // If the layout parameter is a fixed size and the padding adjusted parameter (dimen in this
+      // case) is valid, we can trust that the size won't change due to a layout pass.
+      if (layoutParam > 0 && dimen > 0) {
         return true;
       }
 
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-        return view.isLaidOut();
+      // SIZE_ORIGINAL is not dependent on a layout pass.
+      if (dimen == Target.SIZE_ORIGINAL) {
+        return true;
       }
-      return !view.isLayoutRequested();
+
+      // TODO: Is this correct? The view's parent could change size after a layout.
+      // We're making an assumption that MATCH_PARENT won't change after it has been set once, so
+      // future layout passes typically won't change it. This probably will break in some cases.
+      if (layoutParam == LayoutParams.MATCH_PARENT && dimen > 0) {
+        return true;
+      }
+
+      // We can trust a non-zero dimension if no layout pass is pending, otherwise we're going to
+      // have to wait for a layout pass.
+      return dimen > 0 && !view.isLayoutRequested();
     }
 
     private int getTargetHeight() {
@@ -273,25 +303,15 @@ public abstract class ViewTarget<T extends View, Z> extends BaseTarget<Z> {
 
     private int getTargetDimen(int viewSize, int paramSize, int paddingSize) {
       int adjustedViewSize = viewSize - paddingSize;
-      if (isSizeValid(adjustedViewSize)) {
-        return adjustedViewSize;
-      }
-
-      if (paramSize == PENDING_SIZE) {
-        return PENDING_SIZE;
-      }
-
       if (paramSize == LayoutParams.WRAP_CONTENT) {
         return SIZE_ORIGINAL;
       } else if (paramSize > 0) {
         return paramSize - paddingSize;
+      } else if (adjustedViewSize > 0) {
+        return adjustedViewSize;
       } else {
         return PENDING_SIZE;
       }
-    }
-
-    private boolean isSizeValid(int size) {
-      return size > 0 || size == SIZE_ORIGINAL;
     }
 
     private static class SizeDeterminerLayoutListener implements ViewTreeObserver
