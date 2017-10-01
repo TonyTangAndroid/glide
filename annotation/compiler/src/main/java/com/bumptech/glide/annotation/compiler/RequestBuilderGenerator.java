@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -102,6 +103,8 @@ final class RequestBuilderGenerator {
   /** A set of method names to avoid overriding from RequestOptions. */
   private static final ImmutableSet<String> EXCLUDED_METHODS_FROM_BASE_REQUEST_OPTIONS =
       ImmutableSet.of("clone", "apply", "autoLock", "lock", "autoClone");
+  private static final ClassName CHECK_RESULT_CLASS_NAME =
+      ClassName.get("android.support.annotation", "CheckResult");
 
   private final ProcessingEnvironment processingEnv;
   private final ProcessorUtil processorUtil;
@@ -165,6 +168,7 @@ final class RequestBuilderGenerator {
         .addModifiers(Modifier.PUBLIC)
         .addTypeVariable(transcodeTypeName)
         .superclass(requestBuilderOfTranscodeType)
+        .addSuperinterface(Cloneable.class)
         .addMethods(generateConstructors())
         .addMethod(generateDownloadOnlyRequestMethod())
         .addMethods(generateGeneratedRequestOptionsEquivalents(generatedOptions))
@@ -203,7 +207,7 @@ final class RequestBuilderGenerator {
     ParameterizedTypeName generatedRequestBuilderOfType =
         ParameterizedTypeName.get(generatedRequestBuilderClassName, ClassName.get(typeArgument));
 
-    return MethodSpec.overriding(methodToOverride)
+    MethodSpec.Builder builder = MethodSpec.overriding(methodToOverride)
         .returns(generatedRequestBuilderOfType)
         .addCode(CodeBlock.builder()
             .add("return ($T) super.$N(",
@@ -217,8 +221,13 @@ final class RequestBuilderGenerator {
                 })
                 .join(Joiner.on(", ")))
             .add(");\n")
-            .build())
-        .build();
+            .build());
+
+    for (AnnotationMirror mirror : methodToOverride.getAnnotationMirrors()) {
+      builder.addAnnotation(AnnotationSpec.get(mirror));
+    }
+
+    return builder.build();
   }
 
   /**
@@ -284,10 +293,27 @@ final class RequestBuilderGenerator {
         .add(");\n")
         .build();
 
-    return MethodSpec.methodBuilder(requestOptionMethod.name)
+    MethodSpec.Builder result = MethodSpec.methodBuilder(requestOptionMethod.name)
         .addJavadoc(
             processorUtil.generateSeeMethodJavadoc(requestOptionsClassName, requestOptionMethod))
         .addModifiers(Modifier.PUBLIC)
+        .varargs(requestOptionMethod.varargs)
+        .addAnnotations(
+            FluentIterable.from(requestOptionMethod.annotations)
+                .filter(new Predicate<AnnotationSpec>() {
+                  @Override
+                  public boolean apply(AnnotationSpec input) {
+                    return !input.type.equals(TypeName.get(Override.class))
+                        // SafeVarargs can only be applied to final methods. GlideRequest is
+                        // non-final to allow for mocking.
+                        && !input.type.equals(TypeName.get(SafeVarargs.class))
+                        // @CheckResult isn't applicable for RequestBuilder because there is no
+                        // autoClone() in RequestBuilder.
+                        && !input.type.equals(CHECK_RESULT_CLASS_NAME);
+                  }
+                })
+                .toList()
+        )
         .addTypeVariables(requestOptionMethod.typeVariables)
         .addParameters(requestOptionMethod.parameters)
         .returns(generatedRequestBuilderOfTranscodeType)
@@ -301,8 +327,18 @@ final class RequestBuilderGenerator {
             requestOptionsClassName))
         .addCode(callRequestOptionsMethod)
         .endControlFlow()
-        .addStatement("return this")
-        .build();
+        .addStatement("return this");
+
+    if (requestOptionMethod.annotations.contains(
+        AnnotationSpec.builder(SafeVarargs.class).build())) {
+      result.addAnnotation(
+          AnnotationSpec.builder(SuppressWarnings.class)
+              .addMember("value", "$S", "unchecked")
+              .addMember("value", "$S", "varargs")
+              .build());
+    }
+
+    return result.build();
   }
 
   private List<MethodSpec> generateConstructors() {
@@ -341,6 +377,7 @@ final class RequestBuilderGenerator {
         = ParameterizedTypeName.get(generatedRequestBuilderClassName, ClassName.get(File.class));
     return MethodSpec.methodBuilder("getDownloadOnlyRequest")
         .addAnnotation(Override.class)
+        .addAnnotation(AnnotationSpec.builder(CHECK_RESULT_CLASS_NAME).build())
         .returns(generatedRequestBuilderOfFile)
         .addModifiers(Modifier.PROTECTED)
         .addStatement("return new $T<>($T.class, $N).apply($N)",

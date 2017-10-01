@@ -298,39 +298,44 @@ public class Glide implements ComponentCallbacks2 {
     ByteBufferGifDecoder byteBufferGifDecoder =
         new ByteBufferGifDecoder(context, registry.getImageHeaderParsers(), bitmapPool, arrayPool);
 
-    registry.register(ByteBuffer.class, new ByteBufferEncoder())
-        .register(InputStream.class, new StreamEncoder(arrayPool))
+    registry
+        .append(ByteBuffer.class, new ByteBufferEncoder())
+        .append(InputStream.class, new StreamEncoder(arrayPool))
         /* Bitmaps */
-        .append(ByteBuffer.class, Bitmap.class,
+        .append(Registry.BUCKET_BITMAP, ByteBuffer.class, Bitmap.class,
             new ByteBufferBitmapDecoder(downsampler))
-        .append(InputStream.class, Bitmap.class,
+        .append(Registry.BUCKET_BITMAP, InputStream.class, Bitmap.class,
             new StreamBitmapDecoder(downsampler, arrayPool))
-        .append(ParcelFileDescriptor.class, Bitmap.class, new VideoBitmapDecoder(bitmapPool))
-        .register(Bitmap.class, new BitmapEncoder())
+        .append(Registry.BUCKET_BITMAP, ParcelFileDescriptor.class, Bitmap.class,
+            new VideoBitmapDecoder(bitmapPool))
+        .append(Bitmap.class, new BitmapEncoder())
         /* GlideBitmapDrawables */
-        .append(ByteBuffer.class, BitmapDrawable.class,
+        .append(Registry.BUCKET_BITMAP_DRAWABLE, ByteBuffer.class, BitmapDrawable.class,
             new BitmapDrawableDecoder<>(resources, bitmapPool,
                 new ByteBufferBitmapDecoder(downsampler)))
-        .append(InputStream.class, BitmapDrawable.class,
+        .append(Registry.BUCKET_BITMAP_DRAWABLE, InputStream.class, BitmapDrawable.class,
             new BitmapDrawableDecoder<>(resources, bitmapPool,
                 new StreamBitmapDecoder(downsampler, arrayPool)))
-        .append(ParcelFileDescriptor.class, BitmapDrawable.class,
+        .append(Registry.BUCKET_BITMAP_DRAWABLE, ParcelFileDescriptor.class, BitmapDrawable.class,
             new BitmapDrawableDecoder<>(resources, bitmapPool, new VideoBitmapDecoder(bitmapPool)))
-        .register(BitmapDrawable.class, new BitmapDrawableEncoder(bitmapPool, new BitmapEncoder()))
+        .append(BitmapDrawable.class, new BitmapDrawableEncoder(bitmapPool, new BitmapEncoder()))
         /* GIFs */
-        .prepend(InputStream.class, GifDrawable.class,
+        .append(Registry.BUCKET_GIF, InputStream.class, GifDrawable.class,
             new StreamGifDecoder(registry.getImageHeaderParsers(), byteBufferGifDecoder, arrayPool))
-        .prepend(ByteBuffer.class, GifDrawable.class, byteBufferGifDecoder)
-        .register(GifDrawable.class, new GifDrawableEncoder())
+        .append(Registry.BUCKET_GIF, ByteBuffer.class, GifDrawable.class, byteBufferGifDecoder)
+        .append(GifDrawable.class, new GifDrawableEncoder())
         /* GIF Frames */
+        // Compilation with Gradle requires the type to be specified for UnitModelLoader here.
         .append(GifDecoder.class, GifDecoder.class, new UnitModelLoader.Factory<GifDecoder>())
-        .append(GifDecoder.class, Bitmap.class, new GifFrameResourceDecoder(bitmapPool))
+        .append(Registry.BUCKET_BITMAP, GifDecoder.class, Bitmap.class,
+            new GifFrameResourceDecoder(bitmapPool))
         /* Files */
         .register(new ByteBufferRewinder.Factory())
         .append(File.class, ByteBuffer.class, new ByteBufferFileLoader.Factory())
         .append(File.class, InputStream.class, new FileLoader.StreamFactory())
         .append(File.class, File.class, new FileDecoder())
         .append(File.class, ParcelFileDescriptor.class, new FileLoader.FileDescriptorFactory())
+        // Compilation with Gradle requires the type to be specified for UnitModelLoader here.
         .append(File.class, File.class, new UnitModelLoader.Factory<File>())
         /* Models */
         .register(new InputStreamRewinder.Factory(arrayPool))
@@ -617,12 +622,17 @@ public class Glide implements ComponentCallbacks2 {
    * <p>This method will not work if the View is not attached. Prefer the Activity and Fragment
    * variants unless you're loading in a View subclass.
    *
-   * <p>This method may be inefficient for large hierarchies. Consider memoizing the result after
-   * the View is attached.
+   * <p>This method may be inefficient aways and is definitely inefficient for large hierarchies.
+   * Consider memoizing the result after the View is attached or again, prefer the Activity and
+   * Fragment variants whenever possible.
    *
    * <p>When used in Applications that use the non-support {@link android.app.Fragment} classes,
    * calling this method will produce noisy logs from {@link android.app.FragmentManager}. Consider
    * avoiding entirely or using the {@link Fragment}s from the support library instead.
+   *
+   * <p>If the support {@link FragmentActivity} class is used, this method will only attempt to
+   * discover support {@link Fragment}s. Any non-support {@link android.app.Fragment}s attached
+   * to the {@link FragmentActivity} will be ignored.
    *
    * @param view The view to search for a containing Fragment or Activity from.
    * @return A RequestManager that can be used to start a load.

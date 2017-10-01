@@ -3,6 +3,7 @@ package com.bumptech.glide;
 import static com.bumptech.glide.request.RequestOptions.signatureOf;
 
 import android.net.Uri;
+import android.support.annotation.CheckResult;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.widget.ImageView;
@@ -329,6 +330,7 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
    * builders. </p>
    */
   @SuppressWarnings("unchecked")
+  @CheckResult
   @Override
   public RequestBuilder<TranscodeType> clone() {
     try {
@@ -349,25 +351,25 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
    * @see RequestManager#clear(Target)
    */
   public <Y extends Target<TranscodeType>> Y into(@NonNull Y target) {
+    return into(target, getMutableOptions());
+  }
+
+  private <Y extends Target<TranscodeType>> Y into(@NonNull Y target, RequestOptions options) {
     Util.assertMainThread();
     Preconditions.checkNotNull(target);
     if (!isModelSet) {
       throw new IllegalArgumentException("You must call #load() before calling #into()");
     }
 
-    requestOptions.lock();
-    Request request = buildRequest(target);
+    options = options.autoClone();
+    Request request = buildRequest(target, options);
 
     Request previous = target.getRequest();
-    // When request was failed or cancelled, be sure to use the updated model as it can contains
-    // unexposed data that could help the request to succeed on restart.
-    // See https://github.com/bumptech/glide/issues/2270
-    if (request.isEquivalentTo(previous)
-      && (Preconditions.checkNotNull(previous).isComplete()
-         || Preconditions.checkNotNull(previous).isRunning())) {
+    if (request.isEquivalentTo(previous)) {
       request.recycle();
       // If the request is completed, beginning again will ensure the result is re-delivered,
-      // triggering RequestListeners and Targets. If the request is already
+      // triggering RequestListeners and Targets. If the request is failed, beginning again will
+      // restart the request, giving it another chance to complete. If the request is already
       // running, we can let it continue running without interruption.
       if (!Preconditions.checkNotNull(previous).isRunning()) {
         previous.begin();
@@ -381,6 +383,7 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
 
     return target;
   }
+
 
   /**
    * Sets the {@link ImageView} the resource will be loaded into, cancels any existing loads into
@@ -397,26 +400,27 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
     Util.assertMainThread();
     Preconditions.checkNotNull(view);
 
+    RequestOptions requestOptions = this.requestOptions;
     if (!requestOptions.isTransformationSet()
         && requestOptions.isTransformationAllowed()
         && view.getScaleType() != null) {
-      if (requestOptions.isLocked()) {
-        requestOptions = requestOptions.clone();
-      }
+      // Clone in this method so that if we use this RequestBuilder to load into a View and then
+      // into a different target, we don't retain the transformation applied based on the previous
+      // View's scale type.
       switch (view.getScaleType()) {
         case CENTER_CROP:
-          requestOptions.optionalCenterCrop();
+          requestOptions = requestOptions.clone().optionalCenterCrop();
           break;
         case CENTER_INSIDE:
-          requestOptions.optionalCenterInside();
+          requestOptions = requestOptions.clone().optionalCenterInside();
           break;
         case FIT_CENTER:
         case FIT_START:
         case FIT_END:
-          requestOptions.optionalFitCenter();
+          requestOptions = requestOptions.clone().optionalFitCenter();
           break;
         case FIT_XY:
-          requestOptions.optionalCenterInside();
+          requestOptions = requestOptions.clone().optionalCenterInside();
           break;
         case CENTER:
         case MATRIX:
@@ -425,7 +429,7 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
       }
     }
 
-    return into(context.buildImageViewTarget(view, transcodeClass));
+    return into(context.buildImageViewTarget(view, transcodeClass), requestOptions);
   }
 
   /**
@@ -543,6 +547,7 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
    * @deprecated Use {@link RequestManager#downloadOnly()} and {@link #into(Target)}.
    */
   @Deprecated
+  @CheckResult
   public <Y extends Target<File>> Y downloadOnly(Y target) {
     return getDownloadOnlyRequest().into(target);
   }
@@ -560,10 +565,12 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
    * @deprecated Use {@link RequestManager#downloadOnly()} and {@link #into(int, int)}.
    */
   @Deprecated
+  @CheckResult
   public FutureTarget<File> downloadOnly(int width, int height) {
     return getDownloadOnlyRequest().submit(width, height);
   }
 
+  @CheckResult
   protected RequestBuilder<File> getDownloadOnlyRequest() {
     return new RequestBuilder<>(File.class, this).apply(DOWNLOAD_ONLY_OPTIONS);
   }
@@ -582,15 +589,15 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
     }
   }
 
-  private Request buildRequest(Target<TranscodeType> target) {
+  private Request buildRequest(Target<TranscodeType> target, RequestOptions requestOptions) {
     return buildRequestRecursive(target, null, transitionOptions, requestOptions.getPriority(),
-        requestOptions.getOverrideWidth(), requestOptions.getOverrideHeight());
+        requestOptions.getOverrideWidth(), requestOptions.getOverrideHeight(), requestOptions);
   }
 
   private Request buildRequestRecursive(Target<TranscodeType> target,
       @Nullable ThumbnailRequestCoordinator parentCoordinator,
       TransitionOptions<?, ? super TranscodeType> transitionOptions,
-      Priority priority, int overrideWidth, int overrideHeight) {
+      Priority priority, int overrideWidth, int overrideHeight, RequestOptions requestOptions) {
     if (thumbnailBuilder != null) {
       // Recursive case: contains a potentially recursive thumbnail request builder.
       if (isThumbnailBuilt) {
@@ -623,8 +630,15 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
           transitionOptions, priority, overrideWidth, overrideHeight);
       isThumbnailBuilt = true;
       // Recursively generate thumbnail requests.
-      Request thumbRequest = thumbnailBuilder.buildRequestRecursive(target, coordinator,
-          thumbTransitionOptions, thumbPriority, thumbOverrideWidth, thumbOverrideHeight);
+      Request thumbRequest =
+          thumbnailBuilder.buildRequestRecursive(
+              target,
+              coordinator,
+              thumbTransitionOptions,
+              thumbPriority,
+              thumbOverrideWidth,
+              thumbOverrideHeight,
+              thumbnailBuilder.requestOptions);
       isThumbnailBuilt = false;
       coordinator.setRequests(fullRequest, thumbRequest);
       return coordinator;
@@ -652,8 +666,6 @@ public class RequestBuilder<TranscodeType> implements Cloneable {
       RequestOptions requestOptions, RequestCoordinator requestCoordinator,
       TransitionOptions<?, ? super TranscodeType> transitionOptions, Priority priority,
       int overrideWidth, int overrideHeight) {
-    requestOptions.lock();
-
     return SingleRequest.obtain(
         context,
         model,

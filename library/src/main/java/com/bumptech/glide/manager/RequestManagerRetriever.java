@@ -42,7 +42,6 @@ public class RequestManagerRetriever implements Handler.Callback {
   // Hacks based on the implementation of FragmentManagerImpl in the non-support libraries that
   // allow us to iterate over and retrieve all active Fragments in a FragmentManager.
   private static final String FRAGMENT_INDEX_KEY = "key";
-  private static final String FRAGMENT_MANAGER_GET_FRAGMENT_KEY = "i";
 
   /**
    * The top application level RequestManager.
@@ -163,12 +162,12 @@ public class RequestManagerRetriever implements Handler.Callback {
     }
 
     // Support Fragments.
+    // Although the user might have non-support Fragments attached to FragmentActivity, searching
+    // for non-support Fragments is so expensive pre O and that should be rare enough that we
+    // prefer to just fall back to the Activity directly.
     if (activity instanceof FragmentActivity) {
       Fragment fragment = findSupportFragment(view, (FragmentActivity) activity);
-      if (fragment == null) {
-        return get(activity);
-      }
-      return get(fragment);
+      return fragment != null ? get(fragment) : get(activity);
     }
 
     // Standard Fragments.
@@ -245,14 +244,29 @@ public class RequestManagerRetriever implements Handler.Callback {
 
   // TODO: Consider using an accessor class in the support library package to more directly retrieve
   // non-support Fragments.
+  @TargetApi(Build.VERSION_CODES.O)
   private void findAllFragmentsWithViews(
+      android.app.FragmentManager fragmentManager, ArrayMap<View, android.app.Fragment> result) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      for (android.app.Fragment fragment : fragmentManager.getFragments()) {
+        if (fragment.getView() != null) {
+          result.put(fragment.getView(), fragment);
+          findAllFragmentsWithViews(fragment.getChildFragmentManager(), result);
+        }
+      }
+    } else {
+      findAllFragmentsWithViewsPreO(fragmentManager, result);
+    }
+  }
+
+  private void findAllFragmentsWithViewsPreO(
       android.app.FragmentManager fragmentManager, ArrayMap<View, android.app.Fragment> result) {
     int index = 0;
     while (true) {
       tempBundle.putInt(FRAGMENT_INDEX_KEY, index++);
       android.app.Fragment fragment = null;
       try {
-        fragment = fragmentManager.getFragment(tempBundle, FRAGMENT_MANAGER_GET_FRAGMENT_KEY);
+        fragment = fragmentManager.getFragment(tempBundle, FRAGMENT_INDEX_KEY);
       } catch (Exception e) {
         // This generates log spam from FragmentManager anyway.
       }

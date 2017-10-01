@@ -2,7 +2,7 @@ Glide
 =====
 
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.bumptech.glide/glide/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.bumptech.glide/glide) [![Build Status](https://travis-ci.org/bumptech/glide.svg?branch=master)](https://travis-ci.org/bumptech/glide)
-| [View Glide's documentation][20] | [Report an issue with Glide][5]
+| [View Glide's documentation][20] | [简体中文文档][22] | [Report an issue with Glide][5]
 
 Glide is a fast and efficient open source media management and image loading framework for Android that wraps media
 decoding, memory and disk caching, and resource pooling into a simple and easy to use interface.
@@ -121,7 +121,9 @@ Comments/bugs/questions/pull requests are always welcome! Please read [CONTRIBUT
 Compatibility
 -------------
 
- * **Android SDK**: Glide requires a minimum API level of 14.  
+ * **Minimum Android SDK**: Glide requires a minimum API level of 14.
+ * **Compile Android SDK**: Glide requires you to compile against API 26.
+
  If you need to support older versions, consider staying on [Glide v3][14], which works on API 10, but not actively maintained.
  * **OkHttp 2.x**: there are optional dependencies available called `okhttp-integration`, see [Integration Libraries][12] wiki page.
  * **OkHttp 3.x**: there are optional dependencies available called `okhttp3-integration`, see [Integration Libraries][12] wiki page.
@@ -217,3 +219,4 @@ This is not an official Google product.
 [19]: https://github.com/wasabeef/glide-transformations
 [20]: http://bumptech.github.io/glide/
 [21]: http://bumptech.github.io/glide/doc/generatedapi.html
+[22]: https://muyangmin.github.io/glide-docs-cn/
