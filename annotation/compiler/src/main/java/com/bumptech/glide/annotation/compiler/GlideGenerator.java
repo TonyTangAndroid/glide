@@ -7,7 +7,7 @@ import com.google.common.collect.Lists;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
+import com.squareup.javapoet.MethodSpec.Builder;
 import com.squareup.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +23,7 @@ import javax.lang.model.util.Elements;
  * Generates a Glide look-alike that acts as the entry point to the generated API
  * (GlideApp.with(...)).
  *
- * <p>>Generated {@link com.bumptech.glide.Glide} look-alikes look like this (note that the name
+ * <p>>Generated {@code com.bumptech.glide.Glide} look-alikes look like this (note that the name
  * is configurable in {@link com.bumptech.glide.annotation.GlideModule}):
  * <pre>
  * <code>
@@ -147,24 +147,46 @@ final class GlideGenerator {
         MethodSpec.methodBuilder(methodToOverride.getSimpleName().toString())
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
             .addJavadoc(processorUtil.generateSeeMethodJavadoc(methodToOverride))
-            .addParameters(Lists.transform(parameters,
-                new Function<VariableElement, ParameterSpec>() {
-                  @Override
-                  public ParameterSpec apply(VariableElement input) {
-                    return ParameterSpec.get(input);
-                  }
-            }));
+            .addParameters(ProcessorUtil.getParameters(methodToOverride));
 
-    TypeElement visibleForTestingType =
+    addReturnAnnotations(builder, methodToOverride);
+
+    boolean returnsValue = element != null;
+    if (returnsValue) {
+      builder.returns(ClassName.get(element));
+    }
+
+    StringBuilder code = new StringBuilder(returnsValue ? "return " : "");
+    code.append("$T.$N(");
+    List<Object> args = new ArrayList<>();
+    args.add(ClassName.get(glideType));
+    args.add(methodToOverride.getSimpleName());
+    if (!parameters.isEmpty()) {
+      for (VariableElement param : parameters) {
+        code.append("$L, ");
+        args.add(param.getSimpleName());
+      }
+      code = new StringBuilder(code.substring(0, code.length() - 2));
+    }
+    code.append(")");
+    builder.addStatement(code.toString(), args.toArray(new Object[0]));
+    return builder.build();
+  }
+
+  private Builder addReturnAnnotations(Builder builder, ExecutableElement methodToOverride) {
+    String visibleForTestingTypeQualifiedName =
         processingEnv
             .getElementUtils()
-            .getTypeElement(VISIBLE_FOR_TESTING_QUALIFIED_NAME);
+            .getTypeElement(VISIBLE_FOR_TESTING_QUALIFIED_NAME)
+            .toString();
+
     for (AnnotationMirror mirror : methodToOverride.getAnnotationMirrors()) {
       builder.addAnnotation(AnnotationSpec.get(mirror));
 
       // Suppress a lint warning if we're overriding a VisibleForTesting method.
       // See #1977.
-      if (mirror.getAnnotationType().asElement().equals(visibleForTestingType)) {
+      String annotationQualifiedName = mirror.getAnnotationType().toString();
+      if (annotationQualifiedName.equals(visibleForTestingTypeQualifiedName)) {
         builder.addAnnotation(
             AnnotationSpec.builder(
                 ClassName.get(SUPPRESS_LINT_PACKAGE_NAME, SUPPRESS_LINT_CLASS_NAME))
@@ -173,26 +195,7 @@ final class GlideGenerator {
       }
     }
 
-    boolean returnsValue = element != null;
-    if (returnsValue) {
-      builder.returns(ClassName.get(element));
-    }
-
-    String code = returnsValue ? "return " : "";
-    code += "$T.$N(";
-    List<Object> args = new ArrayList<>();
-    args.add(ClassName.get(glideType));
-    args.add(methodToOverride.getSimpleName());
-    if (!parameters.isEmpty()) {
-      for (VariableElement param : parameters) {
-        code += "$L, ";
-        args.add(param.getSimpleName());
-      }
-      code = code.substring(0, code.length() - 2);
-    }
-    code += ")";
-    builder.addStatement(code, args.toArray(new Object[0]));
-    return builder.build();
+    return builder;
   }
 
   private List<ExecutableElement> discoverGlideMethodsToOverride() {
@@ -211,15 +214,17 @@ final class GlideGenerator {
     Preconditions.checkArgument(
         parameters.size() == 1, "Expected size of 1, but got %s", methodToOverride);
     VariableElement parameter = parameters.iterator().next();
-    return MethodSpec.methodBuilder(methodToOverride.getSimpleName().toString())
+
+    Builder builder = MethodSpec.methodBuilder(methodToOverride.getSimpleName().toString())
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .addJavadoc(processorUtil.generateSeeMethodJavadoc(methodToOverride))
+        .addParameters(ProcessorUtil.getParameters(methodToOverride))
         .returns(generatedRequestManagerClassName)
-        .addParameter(ClassName.get(parameter.asType()), parameter.getSimpleName().toString())
         .addStatement("return ($T) $T.$N($L)",
             generatedRequestManagerClassName, glideType,
             methodToOverride.getSimpleName().toString(),
-            parameter.getSimpleName())
-        .build();
+            parameter.getSimpleName());
+
+    return addReturnAnnotations(builder, methodToOverride).build();
   }
 }

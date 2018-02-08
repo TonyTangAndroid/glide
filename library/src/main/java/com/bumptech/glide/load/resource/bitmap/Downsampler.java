@@ -53,7 +53,7 @@ public final class Downsampler {
    */
   public static final Option<DownsampleStrategy> DOWNSAMPLE_STRATEGY =
       Option.memory("com.bumptech.glide.load.resource.bitmap.Downsampler.DownsampleStrategy",
-          DownsampleStrategy.AT_LEAST);
+          DownsampleStrategy.DEFAULT);
   /**
    * Ensure that the size of the bitmap is fixed to the requested width and height of the
    * resource from the caller.  The final resource dimensions may differ from the requested
@@ -64,6 +64,8 @@ public final class Downsampler {
    * bitmap for a collection of requested resources so that the bitmap pool will not need to
    * allocate new bitmaps for images of different sizes.
    */
+  // Public API
+  @SuppressWarnings("WeakerAccess")
   public static final Option<Boolean> FIX_BITMAP_SIZE_TO_REQUESTED_DIMENSIONS =
       Option.memory("com.bumptech.glide.load.resource.bitmap.Downsampler.FixBitmapSize", false);
 
@@ -85,8 +87,7 @@ public final class Downsampler {
    * <p>This option is ignored unless we're on Android O+.
    */
   public static final Option<Boolean> ALLOW_HARDWARE_CONFIG =
-      Option.memory(
-          "com.bumtpech.glide.load.resource.bitmap.Downsampler.AllowHardwareDecode", null);
+      Option.memory("com.bumtpech.glide.load.resource.bitmap.Downsampler.AllowHardwareDecode");
 
   private static final String WBMP_MIME_TYPE = "image/vnd.wap.wbmp";
   private static final String ICO_MIME_TYPE = "image/x-ico";
@@ -106,7 +107,7 @@ public final class Downsampler {
     }
 
     @Override
-    public void onDecodeComplete(BitmapPool bitmapPool, Bitmap downsampled) throws IOException {
+    public void onDecodeComplete(BitmapPool bitmapPool, Bitmap downsampled) {
       // Do nothing.
     }
   };
@@ -122,9 +123,6 @@ public final class Downsampler {
   // 10MB. This is the max image header size we can handle, we preallocate a much smaller buffer
   // but will resize up to this amount if necessary.
   private static final int MARK_POSITION = 10 * 1024 * 1024;
-  // Defines the level of precision we get when using inDensity/inTargetDensity to calculate an
-  // arbitrary float scale factor.
-  private static final int DENSITY_PRECISION_MULTIPLIER = 1000000000;
 
   private final BitmapPool bitmapPool;
   private final DisplayMetrics displayMetrics;
@@ -140,12 +138,12 @@ public final class Downsampler {
     this.byteArrayPool = Preconditions.checkNotNull(byteArrayPool);
   }
 
-  public boolean handles(InputStream is) {
+  public boolean handles(@SuppressWarnings("unused") InputStream is) {
     // We expect Downsampler to handle any available type Android supports.
     return true;
   }
 
-  public boolean handles(ByteBuffer byteBuffer) {
+  public boolean handles(@SuppressWarnings("unused") ByteBuffer byteBuffer) {
     // We expect downsampler to handle any available type Android supports.
     return true;
   }
@@ -212,7 +210,7 @@ public final class Downsampler {
       return BitmapResource.obtain(result, bitmapPool);
     } finally {
       releaseOptions(bitmapFactoryOptions);
-      byteArrayPool.put(bytesForOptions, byte[].class);
+      byteArrayPool.put(bytesForOptions);
     }
   }
 
@@ -271,7 +269,8 @@ public final class Downsampler {
     if ((options.inSampleSize == 1 || isKitKatOrGreater) && shouldUsePool(imageType)) {
       int expectedWidth;
       int expectedHeight;
-      if (fixBitmapToRequestedDimensions && isKitKatOrGreater) {
+      if (sourceWidth >= 0 && sourceHeight >= 0
+          && fixBitmapToRequestedDimensions && isKitKatOrGreater) {
         expectedWidth = targetWidth;
         expectedHeight = targetHeight;
       } else {
@@ -321,8 +320,7 @@ public final class Downsampler {
     return rotated;
   }
 
-  // Visible for testing.
-  static void calculateScaling(
+  private static void calculateScaling(
       ImageType imageType,
       InputStream is,
       DecodeCallbacks decodeCallbacks,
@@ -336,6 +334,10 @@ public final class Downsampler {
       BitmapFactory.Options options) throws IOException {
     // We can't downsample source content if we can't determine its dimensions.
     if (sourceWidth <= 0 || sourceHeight <= 0) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "Unable to determine dimensions for: " + imageType
+            + " with target [" + targetWidth + "x" + targetHeight + "]");
+      }
       return;
     }
 
@@ -441,7 +443,7 @@ public final class Downsampler {
     // densities here so we calculate the final Bitmap size correctly.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
       options.inTargetDensity = adjustTargetDensityForError(adjustedScaleFactor);
-      options.inDensity = DENSITY_PRECISION_MULTIPLIER;
+      options.inDensity = getDensityMultiplier(adjustedScaleFactor);
     }
     if (isScaling(options)) {
       options.inScaled = true;
@@ -468,10 +470,17 @@ public final class Downsampler {
    * the final scale factor is as close to our target as possible.
    */
   private static int adjustTargetDensityForError(double adjustedScaleFactor) {
-    int targetDensity = round(DENSITY_PRECISION_MULTIPLIER * adjustedScaleFactor);
-    float scaleFactorWithError = targetDensity / (float) DENSITY_PRECISION_MULTIPLIER;
+    int densityMultiplier = getDensityMultiplier(adjustedScaleFactor);
+    int targetDensity = round(densityMultiplier * adjustedScaleFactor);
+    float scaleFactorWithError = targetDensity / (float) densityMultiplier;
     double difference = adjustedScaleFactor / scaleFactorWithError;
     return round(difference * targetDensity);
+  }
+
+  private static int getDensityMultiplier(double adjustedScaleFactor) {
+    return (int) Math.round(
+        Integer.MAX_VALUE
+            * (adjustedScaleFactor <= 1D ? adjustedScaleFactor : 1 / adjustedScaleFactor));
   }
 
   // This is weird, but it matches the logic in a bunch of Android views/framework classes for
@@ -480,7 +489,7 @@ public final class Downsampler {
     return (int) (value + 0.5d);
   }
 
-  private boolean shouldUsePool(ImageType imageType) throws IOException {
+  private boolean shouldUsePool(ImageType imageType) {
     // On KitKat+, any bitmap (of a given config) can be used to decode any other bitmap
     // (with the same config).
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -500,8 +509,7 @@ public final class Downsampler {
       boolean isExifOrientationRequired,
       BitmapFactory.Options optionsWithScaling,
       int targetWidth,
-      int targetHeight)
-      throws IOException {
+      int targetHeight) {
 
     if (hardwareConfigState.setHardwareConfigIfAllowed(
         targetWidth,
@@ -533,9 +541,7 @@ public final class Downsampler {
 
     optionsWithScaling.inPreferredConfig =
         hasAlpha ? Bitmap.Config.ARGB_8888 : Bitmap.Config.RGB_565;
-    if (optionsWithScaling.inPreferredConfig == Config.RGB_565
-        || optionsWithScaling.inPreferredConfig == Config.ARGB_4444
-        || optionsWithScaling.inPreferredConfig == Config.ALPHA_8) {
+    if (optionsWithScaling.inPreferredConfig == Config.RGB_565) {
       optionsWithScaling.inDither = true;
     }
   }
@@ -565,7 +571,7 @@ public final class Downsampler {
       // size. To avoid unnecessary allocations reading image data, we fix the mark limit so that it
       // is no larger than our current buffer size here. We need to do so immediately before
       // decoding the full image to avoid having our mark limit overridden by other calls to
-      // markand reset. See issue #225.
+      // mark and reset. See issue #225.
       callbacks.onObtainBounds();
     }
     // BitmapFactory.Options out* variables are reset by most calls to decodeStream, successful or
@@ -657,16 +663,29 @@ public final class Downsampler {
 
   @SuppressWarnings("PMD.CollapsibleIfStatements")
   @TargetApi(Build.VERSION_CODES.O)
-  private static void setInBitmap(BitmapFactory.Options options, BitmapPool bitmapPool, int width,
-      int height) {
+  private static void setInBitmap(
+      BitmapFactory.Options options, BitmapPool bitmapPool, int width, int height) {
+    @Nullable Bitmap.Config expectedConfig = null;
     // Avoid short circuiting, it appears to break on some devices.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       if (options.inPreferredConfig == Config.HARDWARE) {
         return;
       }
+      // On API 26 outConfig may be null for some images even if the image is valid, can be decoded
+      // and outWidth/outHeight/outColorSpace are populated (see b/71513049).
+      expectedConfig = options.outConfig;
+    }
+
+    if (expectedConfig == null) {
+      // We're going to guess that BitmapFactory will return us the config we're requesting. This
+      // isn't always the case, even though our guesses tend to be conservative and prefer configs
+      // of larger sizes so that the Bitmap will fit our image anyway. If we're wrong here and the
+      // config we choose is too small, our initial decode will fail, but we will retry with no
+      // inBitmap which will succeed so if we're wrong here, we're less efficient but still correct.
+      expectedConfig = options.inPreferredConfig;
     }
     // BitmapFactory will clear out the Bitmap before writing to it, so getDirty is safe.
-    options.inBitmap = bitmapPool.getDirty(width, height, options.inPreferredConfig);
+    options.inBitmap = bitmapPool.getDirty(width, height, expectedConfig);
   }
 
   private static synchronized BitmapFactory.Options getDefaultOptions() {

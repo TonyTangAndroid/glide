@@ -1,5 +1,7 @@
 package com.bumptech.glide.annotation.compiler;
 
+import static com.bumptech.glide.annotation.compiler.ProcessorUtil.nonNull;
+
 import com.bumptech.glide.annotation.GlideExtension;
 import com.bumptech.glide.annotation.GlideOption;
 import com.google.common.base.Function;
@@ -20,8 +22,11 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -33,8 +38,8 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Generates a {@link com.bumptech.glide.RequestBuilder} subclass containing all methods from
- * the base class, all methods from {@link com.bumptech.glide.request.RequestOptions} and all
+ * Generates a {@code com.bumptech.glide.RequestBuilder} subclass containing all methods from
+ * the base class, all methods from {@code com.bumptech.glide.request.RequestOptions} and all
  * non-override {@link GlideOption} annotated methods in {@link GlideExtension} annotated
  * classes.
  *
@@ -105,6 +110,7 @@ final class RequestBuilderGenerator {
       ImmutableSet.of("clone", "apply", "autoLock", "lock", "autoClone");
   private static final ClassName CHECK_RESULT_CLASS_NAME =
       ClassName.get("android.support.annotation", "CheckResult");
+  private static final AnnotationSpec NON_NULL = AnnotationSpec.builder(nonNull()).build();
 
   private final ProcessingEnvironment processingEnv;
   private final ProcessorUtil processorUtil;
@@ -177,8 +183,8 @@ final class RequestBuilderGenerator {
   }
 
   /**
-   * Generates overrides of all methods in {@link com.bumptech.glide.RequestBuilder} that return
-   * {@link com.bumptech.glide.RequestBuilder} so that they return our generated subclass instead.
+   * Generates overrides of all methods in {@code com.bumptech.glide.RequestBuilder} that return
+   * {@code com.bumptech.glide.RequestBuilder} so that they return our generated subclass instead.
    */
   private List<MethodSpec> generateRequestBuilderOverrides() {
     TypeMirror rawRequestBuilderType =
@@ -194,8 +200,8 @@ final class RequestBuilderGenerator {
   }
 
   /**
-   * Generates an override of a particular method in {@link com.bumptech.glide.RequestBuilder} that
-   * returns {@link com.bumptech.glide.RequestBuilder} so that it returns our generated subclass
+   * Generates an override of a particular method in {@code com.bumptech.glide.RequestBuilder} that
+   * returns {@code com.bumptech.glide.RequestBuilder} so that it returns our generated subclass
    * instead.
    */
   private MethodSpec generateRequestBuilderOverride(ExecutableElement methodToOverride) {
@@ -207,7 +213,7 @@ final class RequestBuilderGenerator {
     ParameterizedTypeName generatedRequestBuilderOfType =
         ParameterizedTypeName.get(generatedRequestBuilderClassName, ClassName.get(typeArgument));
 
-    MethodSpec.Builder builder = MethodSpec.overriding(methodToOverride)
+    MethodSpec.Builder builder = ProcessorUtil.overriding(methodToOverride)
         .returns(generatedRequestBuilderOfType)
         .addCode(CodeBlock.builder()
             .add("return ($T) super.$N(",
@@ -224,7 +230,17 @@ final class RequestBuilderGenerator {
             .build());
 
     for (AnnotationMirror mirror : methodToOverride.getAnnotationMirrors()) {
-      builder.addAnnotation(AnnotationSpec.get(mirror));
+      builder = builder.addAnnotation(AnnotationSpec.get(mirror));
+    }
+
+    if (methodToOverride.isVarArgs()) {
+      builder = builder
+          .addModifiers(Modifier.FINAL)
+          .addAnnotation(SafeVarargs.class)
+          .addAnnotation(
+              AnnotationSpec.builder(SuppressWarnings.class)
+                  .addMember("value", "$S", "varargs")
+                  .build());
     }
 
     return builder.build();
@@ -234,7 +250,7 @@ final class RequestBuilderGenerator {
    * Generates methods with equivalent names and arguments to methods annotated with
    * {@link GlideOption} in
    * {@link com.bumptech.glide.annotation.GlideExtension}s that return our generated
-   * {@link com.bumptech.glide.RequestBuilder} subclass.
+   * {@code com.bumptech.glide.RequestBuilder} subclass.
    */
   private List<MethodSpec> generateGeneratedRequestOptionsEquivalents(
       @Nullable final TypeSpec generatedOptions) {
@@ -260,10 +276,10 @@ final class RequestBuilderGenerator {
 
   /**
    * Returns {@code true} if the given {@link MethodSpec} is a useful method to have in our
-   * {@link com.bumptech.glide.RequestBuilder} subclass.
+   * {@code com.bumptech.glide.RequestBuilder} subclass.
    *
    * <p>Only newly generated methods will be included in the generated
-   * {@link com.bumptech.glide.request.BaseRequestBuilder} subclass, so we only have to filter out
+   * {@code com.bumptech.glide.request.BaseRequestBuilder} subclass, so we only have to filter out
    * methods that override other methods to avoid duplicates.
    */
   private boolean isUsefulGeneratedRequestOption(MethodSpec requestOptionMethod) {
@@ -277,7 +293,7 @@ final class RequestBuilderGenerator {
 
    /**
    * Generates a particular method with  an equivalent name and arguments to the given method
-   * from the generated {@link com.bumptech.glide.request.BaseRequestBuilder} subclass.
+   * from the generated {@code com.bumptech.glide.request.BaseRequestBuilder} subclass.
    */
   private MethodSpec generateGeneratedRequestOptionEquivalent(MethodSpec requestOptionMethod) {
     CodeBlock callRequestOptionsMethod = CodeBlock.builder()
@@ -307,9 +323,8 @@ final class RequestBuilderGenerator {
                         // SafeVarargs can only be applied to final methods. GlideRequest is
                         // non-final to allow for mocking.
                         && !input.type.equals(TypeName.get(SafeVarargs.class))
-                        // @CheckResult isn't applicable for RequestBuilder because there is no
-                        // autoClone() in RequestBuilder.
-                        && !input.type.equals(CHECK_RESULT_CLASS_NAME);
+                        // We need to combine warnings below.
+                        && !input.type.equals(TypeName.get(SuppressWarnings.class));
                   }
                 })
                 .toList()
@@ -329,16 +344,52 @@ final class RequestBuilderGenerator {
         .endControlFlow()
         .addStatement("return this");
 
+    AnnotationSpec suppressWarnings = buildSuppressWarnings(requestOptionMethod);
+    if (suppressWarnings != null) {
+      result.addAnnotation(suppressWarnings);
+    }
+    return result.build();
+  }
+
+  @Nullable
+  private AnnotationSpec buildSuppressWarnings(MethodSpec requestOptionMethod) {
+    Set<String> suppressions = new HashSet<>();
     if (requestOptionMethod.annotations.contains(
-        AnnotationSpec.builder(SafeVarargs.class).build())) {
-      result.addAnnotation(
-          AnnotationSpec.builder(SuppressWarnings.class)
-              .addMember("value", "$S", "unchecked")
-              .addMember("value", "$S", "varargs")
-              .build());
+        AnnotationSpec.builder(SuppressWarnings.class).build())) {
+      for (AnnotationSpec annotation : requestOptionMethod.annotations) {
+        if (annotation.type.equals(TypeName.get(SuppressWarnings.class))) {
+          List<CodeBlock> codeBlocks = annotation.members.get("value");
+          suppressions.addAll(FluentIterable.from(codeBlocks).transform(
+              new Function<CodeBlock, String>() {
+                @Override
+                public String apply(CodeBlock input) {
+                  return input.toString();
+                }
+              }).toSet());
+        }
+      }
     }
 
-    return result.build();
+    if (requestOptionMethod.annotations.contains(
+        AnnotationSpec.builder(SafeVarargs.class).build())) {
+      suppressions.add("unchecked");
+      suppressions.add("varargs");
+    }
+
+    if (suppressions.isEmpty()) {
+      return null;
+    }
+    // Enforce ordering across compilers (Internal and External compilers end up disagreeing on the
+    // order produced by the Set additions above.)
+    ArrayList<String> suppressionsList = new ArrayList<>(suppressions);
+    Collections.sort(suppressionsList);
+
+    AnnotationSpec.Builder builder = AnnotationSpec.builder(SuppressWarnings.class);
+    for (String suppression : suppressionsList) {
+      builder.addMember("value", "$S", suppression);
+    }
+
+    return builder.build();
   }
 
   private List<MethodSpec> generateConstructors() {
@@ -351,25 +402,46 @@ final class RequestBuilderGenerator {
 
     MethodSpec firstConstructor =
         MethodSpec.constructorBuilder()
-            .addParameter(classOfTranscodeType, "transcodeClass")
-            .addParameter(requestBuilderOfWildcardOfObject, "other")
+            .addParameter(ParameterSpec.builder(classOfTranscodeType, "transcodeClass")
+                .addAnnotation(nonNull())
+                .build()
+            )
+            .addParameter(ParameterSpec.builder(requestBuilderOfWildcardOfObject, "other")
+                .addAnnotation(nonNull())
+                .build()
+            )
         .addStatement("super($N, $N)", "transcodeClass", "other")
         .build();
 
+    ClassName context = ClassName.get("android.content", "Context");
     ClassName glide = ClassName.get("com.bumptech.glide", "Glide");
     ClassName requestManager = ClassName.get("com.bumptech.glide", "RequestManager");
     MethodSpec secondConstructor =
         MethodSpec.constructorBuilder()
-            .addParameter(glide, "glide")
-            .addParameter(requestManager, "requestManager")
-            .addParameter(classOfTranscodeType, "transcodeClass")
-            .addStatement("super($N, $N ,$N)", "glide", "requestManager", "transcodeClass")
+            .addParameter(ParameterSpec.builder(glide, "glide")
+                .addAnnotation(nonNull())
+                .build()
+            )
+            .addParameter(ParameterSpec.builder(requestManager, "requestManager")
+                .addAnnotation(nonNull())
+                .build()
+            )
+            .addParameter(ParameterSpec.builder(classOfTranscodeType, "transcodeClass")
+                .addAnnotation(nonNull())
+                .build()
+            )
+            .addParameter(ParameterSpec.builder(context, "context")
+                .addAnnotation(nonNull())
+                .build()
+            )
+            .addStatement(
+                "super($N, $N ,$N, $N)", "glide", "requestManager", "transcodeClass", "context")
             .build();
     return ImmutableList.of(firstConstructor, secondConstructor);
   }
 
   /**
-   * Overrides the protected downloadOnly method in {@link com.bumptech.glide.RequestBuilder} to
+   * Overrides the protected downloadOnly method in {@code com.bumptech.glide.RequestBuilder} to
    * return our generated subclass instead.
    */
   private MethodSpec generateDownloadOnlyRequestMethod() {
@@ -378,6 +450,7 @@ final class RequestBuilderGenerator {
     return MethodSpec.methodBuilder("getDownloadOnlyRequest")
         .addAnnotation(Override.class)
         .addAnnotation(AnnotationSpec.builder(CHECK_RESULT_CLASS_NAME).build())
+        .addAnnotation(NON_NULL)
         .returns(generatedRequestBuilderOfFile)
         .addModifiers(Modifier.PROTECTED)
         .addStatement("return new $T<>($T.class, $N).apply($N)",
