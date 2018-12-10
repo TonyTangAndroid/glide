@@ -16,9 +16,11 @@ import com.bumptech.glide.load.Option;
 import com.bumptech.glide.load.Transformation;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.resource.bitmap.DownsampleStrategy;
+import com.bumptech.glide.request.BaseRequestOptions;
 import com.bumptech.glide.request.RequestOptions;
 import java.lang.Class;
 import java.lang.Cloneable;
+import java.lang.Deprecated;
 import java.lang.Override;
 import java.lang.SafeVarargs;
 import java.lang.SuppressWarnings;
@@ -48,8 +50,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions sizeMultiplierOf(@FloatRange(from = 0.0, to = 1.0) float arg0) {
-    return new GlideOptions().sizeMultiplier(arg0);
+  public static GlideOptions sizeMultiplierOf(@FloatRange(from = 0.0, to = 1.0) float value) {
+    return new GlideOptions().sizeMultiplier(value);
   }
 
   /**
@@ -57,8 +59,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions diskCacheStrategyOf(@NonNull DiskCacheStrategy arg0) {
-    return new GlideOptions().diskCacheStrategy(arg0);
+  public static GlideOptions diskCacheStrategyOf(@NonNull DiskCacheStrategy strategy) {
+    return new GlideOptions().diskCacheStrategy(strategy);
   }
 
   /**
@@ -66,8 +68,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions priorityOf(@NonNull Priority arg0) {
-    return new GlideOptions().priority(arg0);
+  public static GlideOptions priorityOf(@NonNull Priority priority) {
+    return new GlideOptions().priority(priority);
   }
 
   /**
@@ -75,8 +77,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions placeholderOf(@Nullable Drawable arg0) {
-    return new GlideOptions().placeholder(arg0);
+  public static GlideOptions placeholderOf(@Nullable Drawable drawable) {
+    return new GlideOptions().placeholder(drawable);
   }
 
   /**
@@ -84,8 +86,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions placeholderOf(@DrawableRes int arg0) {
-    return new GlideOptions().placeholder(arg0);
+  public static GlideOptions placeholderOf(@DrawableRes int id) {
+    return new GlideOptions().placeholder(id);
   }
 
   /**
@@ -93,8 +95,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions errorOf(@Nullable Drawable arg0) {
-    return new GlideOptions().error(arg0);
+  public static GlideOptions errorOf(@Nullable Drawable drawable) {
+    return new GlideOptions().error(drawable);
   }
 
   /**
@@ -102,8 +104,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions errorOf(@DrawableRes int arg0) {
-    return new GlideOptions().error(arg0);
+  public static GlideOptions errorOf(@DrawableRes int id) {
+    return new GlideOptions().error(id);
   }
 
   /**
@@ -120,9 +122,9 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions overrideOf(@IntRange(from = 0) int arg0,
-      @IntRange(from = 0) int arg1) {
-    return new GlideOptions().override(arg0, arg1);
+  public static GlideOptions overrideOf(@IntRange(from = 0) int value0,
+      @IntRange(from = 0) int value1) {
+    return new GlideOptions().override(value0, value1);
   }
 
   /**
@@ -130,8 +132,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions overrideOf(@IntRange(from = 0) int arg0) {
-    return new GlideOptions().override(arg0);
+  public static GlideOptions overrideOf(@IntRange(from = 0) int value) {
+    return new GlideOptions().override(value);
   }
 
   /**
@@ -139,8 +141,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions signatureOf(@NonNull Key arg0) {
-    return new GlideOptions().signature(arg0);
+  public static GlideOptions signatureOf(@NonNull Key key) {
+    return new GlideOptions().signature(key);
   }
 
   /**
@@ -200,8 +202,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions bitmapTransform(@NonNull Transformation<Bitmap> arg0) {
-    return new GlideOptions().transform(arg0);
+  public static GlideOptions bitmapTransform(@NonNull Transformation<Bitmap> transformation) {
+    return new GlideOptions().transform(transformation);
   }
 
   /**
@@ -222,8 +224,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static <T> GlideOptions option(@NonNull Option<T> arg0, @NonNull T arg1) {
-    return new GlideOptions().set(arg0, arg1);
+  public static <T> GlideOptions option(@NonNull Option<T> option, @NonNull T t) {
+    return new GlideOptions().set(option, t);
   }
 
   /**
@@ -231,8 +233,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions decodeTypeOf(@NonNull Class<?> arg0) {
-    return new GlideOptions().decode(arg0);
+  public static GlideOptions decodeTypeOf(@NonNull Class<?> clazz) {
+    return new GlideOptions().decode(clazz);
   }
 
   /**
@@ -240,8 +242,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions formatOf(@NonNull DecodeFormat arg0) {
-    return new GlideOptions().format(arg0);
+  public static GlideOptions formatOf(@NonNull DecodeFormat format) {
+    return new GlideOptions().format(format);
   }
 
   /**
@@ -249,8 +251,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions frameOf(@IntRange(from = 0) long arg0) {
-    return new GlideOptions().frame(arg0);
+  public static GlideOptions frameOf(@IntRange(from = 0) long value) {
+    return new GlideOptions().frame(value);
   }
 
   /**
@@ -258,8 +260,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions downsampleOf(@NonNull DownsampleStrategy arg0) {
-    return new GlideOptions().downsample(arg0);
+  public static GlideOptions downsampleOf(@NonNull DownsampleStrategy strategy) {
+    return new GlideOptions().downsample(strategy);
   }
 
   /**
@@ -267,8 +269,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions timeoutOf(@IntRange(from = 0) int arg0) {
-    return new GlideOptions().timeout(arg0);
+  public static GlideOptions timeoutOf(@IntRange(from = 0) int value) {
+    return new GlideOptions().timeout(value);
   }
 
   /**
@@ -276,8 +278,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions encodeQualityOf(@IntRange(from = 0, to = 100) int arg0) {
-    return new GlideOptions().encodeQuality(arg0);
+  public static GlideOptions encodeQualityOf(@IntRange(from = 0, to = 100) int value) {
+    return new GlideOptions().encodeQuality(value);
   }
 
   /**
@@ -285,8 +287,8 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
    */
   @CheckResult
   @NonNull
-  public static GlideOptions encodeFormatOf(@NonNull Bitmap.CompressFormat arg0) {
-    return new GlideOptions().encodeFormat(arg0);
+  public static GlideOptions encodeFormatOf(@NonNull Bitmap.CompressFormat format) {
+    return new GlideOptions().encodeFormat(format);
   }
 
   /**
@@ -305,245 +307,245 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions sizeMultiplier(@FloatRange(from = 0.0, to = 1.0) float arg0) {
-    return (GlideOptions) super.sizeMultiplier(arg0);
+  public GlideOptions sizeMultiplier(@FloatRange(from = 0.0, to = 1.0) float value) {
+    return (GlideOptions) super.sizeMultiplier(value);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions useUnlimitedSourceGeneratorsPool(boolean flag) {
+  public GlideOptions useUnlimitedSourceGeneratorsPool(boolean flag) {
     return (GlideOptions) super.useUnlimitedSourceGeneratorsPool(flag);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions useAnimationPool(boolean flag) {
+  public GlideOptions useAnimationPool(boolean flag) {
     return (GlideOptions) super.useAnimationPool(flag);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions onlyRetrieveFromCache(boolean flag) {
+  public GlideOptions onlyRetrieveFromCache(boolean flag) {
     return (GlideOptions) super.onlyRetrieveFromCache(flag);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions diskCacheStrategy(@NonNull DiskCacheStrategy arg0) {
-    return (GlideOptions) super.diskCacheStrategy(arg0);
+  public GlideOptions diskCacheStrategy(@NonNull DiskCacheStrategy strategy) {
+    return (GlideOptions) super.diskCacheStrategy(strategy);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions priority(@NonNull Priority arg0) {
-    return (GlideOptions) super.priority(arg0);
+  public GlideOptions priority(@NonNull Priority priority) {
+    return (GlideOptions) super.priority(priority);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions placeholder(@Nullable Drawable arg0) {
-    return (GlideOptions) super.placeholder(arg0);
+  public GlideOptions placeholder(@Nullable Drawable drawable) {
+    return (GlideOptions) super.placeholder(drawable);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions placeholder(@DrawableRes int arg0) {
-    return (GlideOptions) super.placeholder(arg0);
+  public GlideOptions placeholder(@DrawableRes int id) {
+    return (GlideOptions) super.placeholder(id);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions fallback(@Nullable Drawable arg0) {
-    return (GlideOptions) super.fallback(arg0);
+  public GlideOptions fallback(@Nullable Drawable drawable) {
+    return (GlideOptions) super.fallback(drawable);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions fallback(@DrawableRes int arg0) {
-    return (GlideOptions) super.fallback(arg0);
+  public GlideOptions fallback(@DrawableRes int id) {
+    return (GlideOptions) super.fallback(id);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions error(@Nullable Drawable arg0) {
-    return (GlideOptions) super.error(arg0);
+  public GlideOptions error(@Nullable Drawable drawable) {
+    return (GlideOptions) super.error(drawable);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions error(@DrawableRes int arg0) {
-    return (GlideOptions) super.error(arg0);
+  public GlideOptions error(@DrawableRes int id) {
+    return (GlideOptions) super.error(id);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions theme(@Nullable Resources.Theme arg0) {
-    return (GlideOptions) super.theme(arg0);
+  public GlideOptions theme(@Nullable Resources.Theme theme) {
+    return (GlideOptions) super.theme(theme);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions skipMemoryCache(boolean skip) {
+  public GlideOptions skipMemoryCache(boolean skip) {
     return (GlideOptions) super.skipMemoryCache(skip);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions override(int width, int height) {
+  public GlideOptions override(int width, int height) {
     return (GlideOptions) super.override(width, height);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions override(int size) {
+  public GlideOptions override(int size) {
     return (GlideOptions) super.override(size);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions signature(@NonNull Key arg0) {
-    return (GlideOptions) super.signature(arg0);
+  public GlideOptions signature(@NonNull Key key) {
+    return (GlideOptions) super.signature(key);
   }
 
   @Override
   @CheckResult
-  public final GlideOptions clone() {
+  public GlideOptions clone() {
     return (GlideOptions) super.clone();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final <T> GlideOptions set(@NonNull Option<T> arg0, @NonNull T arg1) {
-    return (GlideOptions) super.set(arg0, arg1);
+  public <Y> GlideOptions set(@NonNull Option<Y> option, @NonNull Y y) {
+    return (GlideOptions) super.set(option, y);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions decode(@NonNull Class<?> arg0) {
-    return (GlideOptions) super.decode(arg0);
+  public GlideOptions decode(@NonNull Class<?> clazz) {
+    return (GlideOptions) super.decode(clazz);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions encodeFormat(@NonNull Bitmap.CompressFormat arg0) {
-    return (GlideOptions) super.encodeFormat(arg0);
+  public GlideOptions encodeFormat(@NonNull Bitmap.CompressFormat format) {
+    return (GlideOptions) super.encodeFormat(format);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions encodeQuality(@IntRange(from = 0, to = 100) int arg0) {
-    return (GlideOptions) super.encodeQuality(arg0);
+  public GlideOptions encodeQuality(@IntRange(from = 0, to = 100) int value) {
+    return (GlideOptions) super.encodeQuality(value);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions frame(@IntRange(from = 0) long arg0) {
-    return (GlideOptions) super.frame(arg0);
+  public GlideOptions frame(@IntRange(from = 0) long value) {
+    return (GlideOptions) super.frame(value);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions format(@NonNull DecodeFormat arg0) {
-    return (GlideOptions) super.format(arg0);
+  public GlideOptions format(@NonNull DecodeFormat format) {
+    return (GlideOptions) super.format(format);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions disallowHardwareConfig() {
+  public GlideOptions disallowHardwareConfig() {
     return (GlideOptions) super.disallowHardwareConfig();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions downsample(@NonNull DownsampleStrategy arg0) {
-    return (GlideOptions) super.downsample(arg0);
+  public GlideOptions downsample(@NonNull DownsampleStrategy strategy) {
+    return (GlideOptions) super.downsample(strategy);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions timeout(@IntRange(from = 0) int arg0) {
-    return (GlideOptions) super.timeout(arg0);
+  public GlideOptions timeout(@IntRange(from = 0) int value) {
+    return (GlideOptions) super.timeout(value);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions optionalCenterCrop() {
+  public GlideOptions optionalCenterCrop() {
     return (GlideOptions) super.optionalCenterCrop();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions optionalFitCenter() {
+  public GlideOptions optionalFitCenter() {
     return (GlideOptions) super.optionalFitCenter();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions fitCenter() {
+  public GlideOptions fitCenter() {
     return (GlideOptions) super.fitCenter();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions optionalCenterInside() {
+  public GlideOptions optionalCenterInside() {
     return (GlideOptions) super.optionalCenterInside();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions centerInside() {
+  public GlideOptions centerInside() {
     return (GlideOptions) super.centerInside();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions optionalCircleCrop() {
+  public GlideOptions optionalCircleCrop() {
     return (GlideOptions) super.optionalCircleCrop();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions circleCrop() {
+  public GlideOptions circleCrop() {
     return (GlideOptions) super.circleCrop();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions transform(@NonNull Transformation<Bitmap> arg0) {
-    return (GlideOptions) super.transform(arg0);
+  public GlideOptions transform(@NonNull Transformation<Bitmap> transformation) {
+    return (GlideOptions) super.transform(transformation);
   }
 
   @Override
@@ -551,68 +553,80 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
   @SuppressWarnings("varargs")
   @NonNull
   @CheckResult
-  public final GlideOptions transforms(@NonNull Transformation<Bitmap>... arg0) {
-    return (GlideOptions) super.transforms(arg0);
+  public final GlideOptions transform(@NonNull Transformation<Bitmap>... transformations) {
+    return (GlideOptions) super.transform(transformations);
+  }
+
+  @Override
+  @SafeVarargs
+  @SuppressWarnings("varargs")
+  @Deprecated
+  @NonNull
+  @CheckResult
+  public final GlideOptions transforms(@NonNull Transformation<Bitmap>... transformations) {
+    return (GlideOptions) super.transforms(transformations);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions optionalTransform(@NonNull Transformation<Bitmap> arg0) {
-    return (GlideOptions) super.optionalTransform(arg0);
+  public GlideOptions optionalTransform(@NonNull Transformation<Bitmap> transformation) {
+    return (GlideOptions) super.optionalTransform(transformation);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final <T> GlideOptions optionalTransform(@NonNull Class<T> arg0,
-      @NonNull Transformation<T> arg1) {
-    return (GlideOptions) super.optionalTransform(arg0, arg1);
+  public <Y> GlideOptions optionalTransform(@NonNull Class<Y> clazz,
+      @NonNull Transformation<Y> transformation) {
+    return (GlideOptions) super.optionalTransform(clazz, transformation);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final <T> GlideOptions transform(@NonNull Class<T> arg0, @NonNull Transformation<T> arg1) {
-    return (GlideOptions) super.transform(arg0, arg1);
+  public <Y> GlideOptions transform(@NonNull Class<Y> clazz,
+      @NonNull Transformation<Y> transformation) {
+    return (GlideOptions) super.transform(clazz, transformation);
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions dontTransform() {
+  public GlideOptions dontTransform() {
     return (GlideOptions) super.dontTransform();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions dontAnimate() {
+  public GlideOptions dontAnimate() {
     return (GlideOptions) super.dontAnimate();
   }
 
   @Override
   @NonNull
   @CheckResult
-  public final GlideOptions apply(@NonNull RequestOptions arg0) {
-    return (GlideOptions) super.apply(arg0);
+  public GlideOptions apply(@NonNull BaseRequestOptions<?> options) {
+    return (GlideOptions) super.apply(options);
   }
 
   @Override
   @NonNull
-  public final GlideOptions lock() {
+  public GlideOptions lock() {
     return (GlideOptions) super.lock();
   }
 
   @Override
   @NonNull
-  public final GlideOptions autoClone() {
+  public GlideOptions autoClone() {
     return (GlideOptions) super.autoClone();
   }
 
   /**
-   * @see Extension#centerCrop(RequestOptions)
+   * @see Extension#centerCrop(BaseRequestOptions)
    */
+  @SuppressWarnings("unchecked")
   @CheckResult
   @NonNull
   public GlideOptions centerCrop() {
@@ -620,7 +634,7 @@ public final class GlideOptions extends RequestOptions implements Cloneable {
   }
 
   /**
-   * @see Extension#centerCrop(RequestOptions)
+   * @see Extension#centerCrop(BaseRequestOptions)
    */
   @CheckResult
   public static GlideOptions centerCropOf() {

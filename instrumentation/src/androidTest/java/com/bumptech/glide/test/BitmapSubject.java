@@ -6,8 +6,8 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
-import android.support.test.InstrumentationRegistry;
 import android.support.v4.content.res.ResourcesCompat;
+import androidx.test.InstrumentationRegistry;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
@@ -61,6 +61,25 @@ public final class BitmapSubject extends Subject<BitmapSubject, Bitmap> {
     Drawable drawable =
         ResourcesCompat.getDrawable(context.getResources(), resourceId, context.getTheme());
     sameAs(drawable);
+  }
+
+  public void hasDimensions(int expectedWidth, int expectedHeight) {
+    int actualWidth = actual().getWidth();
+    int actualHeight = actual().getHeight();
+    String message;
+    if (expectedWidth != actualWidth && expectedHeight != actualHeight) {
+      message = "has dimensions of [" + expectedWidth + "x" + expectedHeight + "]";
+    } else if (expectedWidth != actualWidth) {
+      message = "has width of " + expectedWidth;
+    } else if (expectedHeight != actualHeight) {
+      message = "has height of " + expectedHeight;
+    } else {
+      message = null;
+    }
+
+    if (message != null) {
+      fail(message);
+    }
   }
 
   public void isMutable()  {

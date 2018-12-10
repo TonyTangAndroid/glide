@@ -50,10 +50,11 @@ public final class Downsampler {
    * Indicates the {@link com.bumptech.glide.load.resource.bitmap.DownsampleStrategy} option that
    * will be used to calculate the sample size to use to downsample an image given the original
    * and target dimensions of the image.
+   *
+   * @deprecated Use {@link DownsampleStrategy#OPTION} directly instead.
    */
-  public static final Option<DownsampleStrategy> DOWNSAMPLE_STRATEGY =
-      Option.memory("com.bumptech.glide.load.resource.bitmap.Downsampler.DownsampleStrategy",
-          DownsampleStrategy.DEFAULT);
+  @Deprecated
+  public static final Option<DownsampleStrategy> DOWNSAMPLE_STRATEGY = DownsampleStrategy.OPTION;
   /**
    * Ensure that the size of the bitmap is fixed to the requested width and height of the
    * resource from the caller.  The final resource dimensions may differ from the requested
@@ -87,7 +88,8 @@ public final class Downsampler {
    * <p>This option is ignored unless we're on Android O+.
    */
   public static final Option<Boolean> ALLOW_HARDWARE_CONFIG =
-      Option.memory("com.bumtpech.glide.load.resource.bitmap.Downsampler.AllowHardwareDecode");
+      Option.memory(
+          "com.bumptech.glide.load.resource.bitmap.Downsampler.AllowHardwareDecode", false);
 
   private static final String WBMP_MIME_TYPE = "image/vnd.wap.wbmp";
   private static final String ICO_MIME_TYPE = "image/x-ico";
@@ -195,13 +197,10 @@ public final class Downsampler {
     bitmapFactoryOptions.inTempStorage = bytesForOptions;
 
     DecodeFormat decodeFormat = options.get(DECODE_FORMAT);
-    DownsampleStrategy downsampleStrategy = options.get(DOWNSAMPLE_STRATEGY);
+    DownsampleStrategy downsampleStrategy = options.get(DownsampleStrategy.OPTION);
     boolean fixBitmapToRequestedDimensions = options.get(FIX_BITMAP_SIZE_TO_REQUESTED_DIMENSIONS);
     boolean isHardwareConfigAllowed =
       options.get(ALLOW_HARDWARE_CONFIG) != null && options.get(ALLOW_HARDWARE_CONFIG);
-    if (decodeFormat == DecodeFormat.PREFER_ARGB_8888_DISALLOW_HARDWARE) {
-      isHardwareConfigAllowed = false;
-    }
 
     try {
       Bitmap result = decodeFromWrappedStreams(is, bitmapFactoryOptions,
@@ -523,7 +522,6 @@ public final class Downsampler {
 
     // Changing configs can cause skewing on 4.1, see issue #128.
     if (format == DecodeFormat.PREFER_ARGB_8888
-        || format == DecodeFormat.PREFER_ARGB_8888_DISALLOW_HARDWARE
         || Build.VERSION.SDK_INT == Build.VERSION_CODES.JELLY_BEAN) {
       optionsWithScaling.inPreferredConfig = Bitmap.Config.ARGB_8888;
       return;

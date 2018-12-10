@@ -6,8 +6,9 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
 import android.util.Log;
-import com.bumptech.glide.load.DecodeFormat;
+import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.Engine;
+import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.load.engine.bitmap_recycle.ArrayPool;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool;
 import com.bumptech.glide.load.engine.bitmap_recycle.BitmapPoolAdapter;
@@ -23,15 +24,17 @@ import com.bumptech.glide.manager.ConnectivityMonitorFactory;
 import com.bumptech.glide.manager.DefaultConnectivityMonitorFactory;
 import com.bumptech.glide.manager.RequestManagerRetriever;
 import com.bumptech.glide.manager.RequestManagerRetriever.RequestManagerFactory;
+import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
  * A builder class for setting default structural classes for Glide to use.
  */
-// Public API.
-@SuppressWarnings({"unused", "WeakerAccess"})
 public final class GlideBuilder {
   private final Map<Class<?>, TransitionOptions<?, ?>> defaultTransitionOptions = new ArrayMap<>();
   private Engine engine;
@@ -49,6 +52,8 @@ public final class GlideBuilder {
   private RequestManagerFactory requestManagerFactory;
   private GlideExecutor animationExecutor;
   private boolean isActiveResourceRetentionAllowed;
+  @Nullable
+  private List<RequestListener<Object>> defaultRequestListeners;
 
   /**
    * Sets the {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} implementation to use
@@ -83,30 +88,12 @@ public final class GlideBuilder {
    * @param memoryCache The cache to use.
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setMemoryCache(@Nullable MemoryCache memoryCache) {
     this.memoryCache = memoryCache;
     return this;
-  }
-
-  /**
-   * Sets the {@link com.bumptech.glide.load.engine.cache.DiskCache} implementation to use to store
-   * {@link com.bumptech.glide.load.engine.Resource} data and thumbnails.
-   *
-   * @param diskCache The disk cache to use.
-   * @return This builder.
-   * @deprecated Creating a disk cache directory on the main thread causes strict mode violations,
-   * use {@link #setDiskCache(com.bumptech.glide.load.engine.cache.DiskCache.Factory)} instead.
-   * Scheduled to be removed in Glide 4.0.
-   */
-  @Deprecated
-  public GlideBuilder setDiskCache(final DiskCache diskCache) {
-    return setDiskCache(new DiskCache.Factory() {
-      @Override
-      public DiskCache build() {
-        return diskCache;
-      }
-    });
   }
 
   /**
@@ -117,6 +104,8 @@ public final class GlideBuilder {
    * @param diskCacheFactory The disk cache factory to use.
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setDiskCache(@Nullable DiskCache.Factory diskCacheFactory) {
     this.diskCacheFactory = diskCacheFactory;
@@ -160,6 +149,8 @@ public final class GlideBuilder {
    * @see #setDiskCacheExecutor(GlideExecutor)
    * @see GlideExecutor
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setSourceExecutor(@Nullable GlideExecutor service) {
     this.sourceExecutor = service;
@@ -181,6 +172,8 @@ public final class GlideBuilder {
    * @see #setSourceExecutor(GlideExecutor)
    * @see GlideExecutor
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setDiskCacheExecutor(@Nullable GlideExecutor service) {
     this.diskCacheExecutor = service;
@@ -199,6 +192,8 @@ public final class GlideBuilder {
    * @param service The {@link GlideExecutor} to use.
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setAnimationExecutor(@Nullable GlideExecutor service) {
     this.animationExecutor = service;
@@ -237,29 +232,12 @@ public final class GlideBuilder {
    * {@link android.graphics.drawable.BitmapDrawable}s, the transition you registered for
    * {@link android.graphics.drawable.BitmapDrawable}s will be used.
    */
+  // Public API.
+  @SuppressWarnings("unused")
   @NonNull
   public <T> GlideBuilder setDefaultTransitionOptions(
       @NonNull Class<T> clazz, @Nullable TransitionOptions<?, T> options) {
     defaultTransitionOptions.put(clazz, options);
-    return this;
-  }
-
-  /**
-   * Sets the {@link com.bumptech.glide.load.DecodeFormat} that will be the default format for all
-   * the default decoders that can change the {@link android.graphics.Bitmap.Config} of the {@link
-   * android.graphics.Bitmap}s they decode.
-   *
-   * <p> Decode format is always a suggestion, not a requirement. See {@link
-   * com.bumptech.glide.load.DecodeFormat} for more details. </p>
-   *
-   * @param decodeFormat The format to use.
-   * @return This builder.
-   *
-   * @deprecated Use {@link #setDefaultRequestOptions(RequestOptions)} instead.
-   */
-  @Deprecated
-  public GlideBuilder setDecodeFormat(DecodeFormat decodeFormat) {
-    defaultRequestOptions = defaultRequestOptions.apply(new RequestOptions().format(decodeFormat));
     return this;
   }
 
@@ -272,6 +250,8 @@ public final class GlideBuilder {
    * @param builder The builder to use (will not be modified).
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("unused")
   @NonNull
   public GlideBuilder setMemorySizeCalculator(@NonNull MemorySizeCalculator.Builder builder) {
     return setMemorySizeCalculator(builder.build());
@@ -287,6 +267,8 @@ public final class GlideBuilder {
    * @param calculator The calculator to use.
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("WeakerAccess")
   @NonNull
   public GlideBuilder setMemorySizeCalculator(@Nullable MemorySizeCalculator calculator) {
     this.memorySizeCalculator = calculator;
@@ -301,6 +283,8 @@ public final class GlideBuilder {
    * @param factory The factory to use
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("unused")
   @NonNull
   public GlideBuilder setConnectivityMonitorFactory(@Nullable ConnectivityMonitorFactory factory) {
     this.connectivityMonitorFactory = factory;
@@ -332,6 +316,8 @@ public final class GlideBuilder {
    * @param logLevel The log level to use from {@link Log}.
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("unused")
   @NonNull
   public GlideBuilder setLogLevel(int logLevel) {
     if (logLevel < Log.VERBOSE || logLevel > Log.ERROR) {
@@ -385,10 +371,38 @@ public final class GlideBuilder {
    *
    * @return This builder.
    */
+  // Public API.
+  @SuppressWarnings("unused")
   @NonNull
   public GlideBuilder setIsActiveResourceRetentionAllowed(
       boolean isActiveResourceRetentionAllowed) {
     this.isActiveResourceRetentionAllowed = isActiveResourceRetentionAllowed;
+    return this;
+  }
+
+  /**
+   * Adds a global {@link RequestListener} that will be added to every request started with Glide.
+   *
+   * <p>Multiple {@link RequestListener}s can be added here, in {@link RequestManager} scopes or
+   * to individual {@link RequestBuilder}s. {@link RequestListener}s are called in the order they're
+   * added. Even if an earlier {@link RequestListener} returns {@code true} from
+   * {@link RequestListener#onLoadFailed(GlideException, Object, Target, boolean)} or
+   * {@link RequestListener#onResourceReady(Object, Object, Target, DataSource, boolean)}, it will
+   * not prevent subsequent {@link RequestListener}s from being called.
+   *
+   * <p>Because Glide requests can be started for any number of individual resource types, any
+   * listener added here has to accept any generic resource type in
+   * {@link RequestListener#onResourceReady(Object, Object, Target, DataSource, boolean)}. If you
+   * must base the behavior of the listener on the resource type, you will need to use
+   * {@code instanceof} to do so. It's not safe to cast resource types without first checking
+   * with {@code instanceof}.
+   */
+  @NonNull
+  public GlideBuilder addGlobalRequestListener(@NonNull RequestListener<Object> listener) {
+    if (defaultRequestListeners == null) {
+      defaultRequestListeners = new ArrayList<>();
+    }
+    defaultRequestListeners.add(listener);
     return this;
   }
 
@@ -403,7 +417,7 @@ public final class GlideBuilder {
   }
 
   @NonNull
-  public Glide build(@NonNull Context context) {
+  Glide build(@NonNull Context context) {
     if (sourceExecutor == null) {
       sourceExecutor = GlideExecutor.newSourceExecutor();
     }
@@ -457,6 +471,12 @@ public final class GlideBuilder {
               isActiveResourceRetentionAllowed);
     }
 
+    if (defaultRequestListeners == null) {
+      defaultRequestListeners = Collections.emptyList();
+    } else {
+      defaultRequestListeners = Collections.unmodifiableList(defaultRequestListeners);
+    }
+
     RequestManagerRetriever requestManagerRetriever =
         new RequestManagerRetriever(requestManagerFactory);
 
@@ -470,6 +490,7 @@ public final class GlideBuilder {
         connectivityMonitorFactory,
         logLevel,
         defaultRequestOptions.lock(),
-        defaultTransitionOptions);
+        defaultTransitionOptions,
+        defaultRequestListeners);
   }
 }

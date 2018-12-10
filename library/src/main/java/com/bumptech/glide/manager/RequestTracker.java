@@ -3,6 +3,7 @@ package com.bumptech.glide.manager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.annotation.VisibleForTesting;
+import android.util.Log;
 import com.bumptech.glide.request.Request;
 import com.bumptech.glide.util.Util;
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ import java.util.WeakHashMap;
  * <p>This class is not thread safe and must be accessed on the main thread.
  */
 public class RequestTracker {
+  private static final String TAG = "RequestTracker";
   // Most requests will be for views and will therefore be held strongly (and safely) by the view
   // via the tag. However, a user can always pass in a different type of target which may end up not
   // being strongly referenced even though the user still would like the request to finish. Weak
@@ -41,6 +43,10 @@ public class RequestTracker {
     if (!isPaused) {
       request.begin();
     } else {
+      request.clear();
+      if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        Log.v(TAG, "Paused, delaying request");
+      }
       pendingRequests.add(request);
     }
   }
@@ -92,7 +98,7 @@ public class RequestTracker {
     isPaused = true;
     for (Request request : Util.getSnapshot(requests)) {
       if (request.isRunning()) {
-        request.pause();
+        request.clear();
         pendingRequests.add(request);
       }
     }
@@ -103,7 +109,7 @@ public class RequestTracker {
     isPaused = true;
     for (Request request : Util.getSnapshot(requests)) {
       if (request.isRunning() || request.isComplete()) {
-        request.pause();
+        request.clear();
         pendingRequests.add(request);
       }
     }
@@ -115,7 +121,10 @@ public class RequestTracker {
   public void resumeRequests() {
     isPaused = false;
     for (Request request : Util.getSnapshot(requests)) {
-      if (!request.isComplete() && !request.isCancelled() && !request.isRunning()) {
+      // We don't need to check for cleared here. Any explicit clear by a user will remove the
+      // Request from the tracker, so the only way we'd find a cleared request here is if we cleared
+      // it. As a result it should be safe for us to resume cleared requests.
+      if (!request.isComplete() && !request.isRunning()) {
         request.begin();
       }
     }
@@ -141,12 +150,12 @@ public class RequestTracker {
    */
   public void restartRequests() {
     for (Request request : Util.getSnapshot(requests)) {
-      if (!request.isComplete() && !request.isCancelled()) {
-        // Ensure the request will be restarted in onResume.
-        request.pause();
+      if (!request.isComplete() && !request.isCleared()) {
+        request.clear();
         if (!isPaused) {
           request.begin();
         } else {
+          // Ensure the request will be restarted in onResume.
           pendingRequests.add(request);
         }
       }

@@ -18,8 +18,8 @@ import android.graphics.Bitmap.Config;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.support.annotation.Nullable;
-import android.support.test.runner.AndroidJUnit4;
 import android.util.DisplayMetrics;
+import androidx.test.runner.AndroidJUnit4;
 import com.bumptech.glide.load.ImageHeaderParser;
 import com.bumptech.glide.load.Options;
 import com.bumptech.glide.load.engine.bitmap_recycle.ArrayPool;
@@ -377,8 +377,7 @@ public class DownsamplerEmulatorTest {
     Downsampler downsampler = buildDownsampler();
 
     InputStream is = openBitmapStream(format, initialWidth, initialHeight);
-    Options options = new Options()
-        .set(Downsampler.DOWNSAMPLE_STRATEGY, strategy);
+    Options options = new Options().set(DownsampleStrategy.OPTION, strategy);
     Bitmap bitmap = downsampler.decode(is, targetWidth, targetHeight, options).get();
     try {
       if (bitmap.getWidth() != expectedWidth || bitmap.getHeight() != expectedHeight) {

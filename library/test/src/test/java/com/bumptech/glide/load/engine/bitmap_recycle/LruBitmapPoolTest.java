@@ -2,6 +2,7 @@ package com.bumptech.glide.load.engine.bitmap_recycle;
 
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND;
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_COMPLETE;
+import static android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL;
 import static android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -24,7 +25,6 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowBitmap;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE, sdk = 18)
@@ -100,6 +100,11 @@ public class LruBitmapPoolTest {
   @Test
   public void testTrimMemoryUiHiddenOrLessRemovesHalfOfBitmaps() {
     testTrimMemory(MAX_SIZE, TRIM_MEMORY_UI_HIDDEN, MAX_SIZE / 2);
+  }
+
+  @Test
+  public void testTrimMemoryRunningCriticalRemovesHalfOfBitmaps() {
+    testTrimMemory(MAX_SIZE, TRIM_MEMORY_RUNNING_CRITICAL, MAX_SIZE / 2);
   }
 
   @Test
@@ -186,7 +191,7 @@ public class LruBitmapPoolTest {
 
     pool.setSizeMultiplier(1);
 
-    assertEquals(Math.round(MAX_SIZE * sizeMultiplier) - MAX_SIZE, strategy.numRemoves);
+    assertEquals(MAX_SIZE * sizeMultiplier - MAX_SIZE, strategy.numRemoves);
   }
 
   @Test
@@ -233,7 +238,7 @@ public class LruBitmapPoolTest {
   }
 
   private Bitmap createMutableBitmap(Bitmap.Config config) {
-    Bitmap bitmap = ShadowBitmap.createBitmap(100, 100, config);
+    Bitmap bitmap = Bitmap.createBitmap(100, 100, config);
     Shadows.shadowOf(bitmap).setMutable(true);
     return bitmap;
 
